@@ -1,0 +1,146 @@
+
+services:
+  # 1. HDFS NameNode
+  namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: namenode
+    restart: always
+    ports:
+      - 9870:9870
+      - 9000:9000
+    volumes:
+      - hadoop_namenode:/hadoop/dfs/name
+      - ./data:/data
+    environment:
+      - CLUSTER_NAME=retail_dw_cluster
+    env_file:
+      - ./hadoop.env
+    networks:
+      - hadoop_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9870"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # 2. HDFS DataNode
+  datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: datanode
+    restart: always
+    volumes:
+      - hadoop_datanode:/hadoop/dfs/data
+      - ./data:/data
+    environment:
+      SERVICE_PRECONDITION: "namenode:9870"
+    env_file:
+      - ./hadoop.env
+    networks:
+      - hadoop_network
+    depends_on:
+      - namenode
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://namenode:9870"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  # 3. Hive Metastore Database (PostgreSQL)
+  hive-metastore-postgresql:
+    image: bde2020/hive-metastore-postgresql:2.3.0
+    container_name: hive-metastore-postgresql
+    restart: always
+    volumes:
+      - hive_postgresql:/var/lib/postgresql/data
+    networks:
+      - hadoop_network
+    environment:
+      POSTGRES_DB: metastore
+      POSTGRES_USER: hive
+      POSTGRES_PASSWORD: hivepassword
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hive -d metastore"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # 4. Hive Metastore Schema Initialization (runs once)
+  init-metastore:
+    image: bde2020/hive:2.3.2-postgresql-metastore
+    container_name: init-metastore
+    volumes:
+      - ./init-metastore.sh:/init-metastore.sh
+    command: bash /init-metastore.sh
+    env_file:
+      - ./hadoop.env
+    networks:
+      - hadoop_network
+    depends_on:
+      - hive-metastore-postgresql
+    restart: "no"
+
+
+  # 5. Hive Metastore Service
+  hive-metastore:
+    image: bde2020/hive:2.3.2-postgresql-metastore
+    container_name: hive-metastore
+    restart: always
+    ports:
+      - 9083:9083
+    command: /opt/hive/bin/hive --service metastore
+    env_file:
+      - ./hadoop.env
+    networks:
+      - hadoop_network
+    depends_on:
+      - namenode
+      - datanode
+      - hive-metastore-postgresql
+      - init-metastore
+    healthcheck:
+      test: ["CMD-SHELL", "netstat -an | grep 9083 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  # 6. HiveServer2
+  hive-server:
+    image: bde2020/hive:2.3.2-postgresql-metastore
+    container_name: hive-server
+    restart: always
+    ports:
+      - 10000:10000
+      - 10002:10002
+    volumes:
+      - ./data:/data
+      - ./:/workspace
+    command: /opt/hive/bin/hive --service hiveserver2
+    env_file:
+      - ./hadoop.env
+    networks:
+      - hadoop_network
+    depends_on:
+      - namenode
+      - datanode
+      - hive-metastore
+    healthcheck:
+      test: ["CMD-SHELL", "netstat -an | grep 10000 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+
+# Global volumes
+volumes:
+  hadoop_namenode:
+  hadoop_datanode:
+  hive_postgresql:
+
+# Network
+networks:
+  hadoop_network:
+    driver: bridge
