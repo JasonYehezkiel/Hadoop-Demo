@@ -85,7 +85,7 @@ LIMIT 20;
 
 -- Query 8: Store Performance Over Time (Accumulating Snapshot)
 SELECT 
-    d.`date`,
+    cast(from_unixtime(unix_timestamp(cast(sa.date_key as string), 'yyyyMMdd')) as date) as the_date,
     s.store_name,
     sa.store_cumulative_revenue,
     sa.store_cumulative_transactions
@@ -93,18 +93,20 @@ FROM fact_store_accumulation sa
 JOIN dim_store s ON sa.store_key = s.store_key
 JOIN dim_date d ON sa.date_key = d.date_key
 WHERE s.store_id = 'IM001'
-ORDER BY d.`date`;
+SORT BY the_date
+LIMIT 30;
 
 -- Query 9: Customer Lifetime Value Growth (Accumulating Snapshot)
 SELECT 
-    d.`date`,
+    cast(from_unixtime(unix_timestamp(cast(ca.date_key as string), 'yyyyMMdd')) as date) as the_date,
     ca.customer_key,
     ca.customer_cumulative_spend,
     ca.customer_transaction_count
 FROM fact_customer_accumulation ca
 JOIN dim_date d ON ca.date_key = d.date_key
 WHERE ca.customer_key IN (1, 2, 3, 4, 5)
-ORDER BY ca.customer_key, d.`date`;
+SORT BY ca.customer_key, the_date
+LIMIT 50;
 
 -- Query 10: Supplier Performance
 SELECT 
@@ -114,6 +116,6 @@ SELECT
     SUM(f.total_price) as total_revenue
 FROM fact_sales f
 JOIN dim_product p ON f.product_key = p.product_key
-JOIN dim_supplier sup ON f.supplier_key = sup.supplier_key
+JOIN dim_supplier sup ON p.supplier_id = sup.supplier_id
 GROUP BY sup.supplier_name
 ORDER BY total_revenue DESC;

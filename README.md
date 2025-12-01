@@ -9,7 +9,6 @@ Proyek ini menunjukan demo **data warehouse (DW) modeling** menggunakan **Docker
 - [Prerequisites](#🔧-prerequisites)
 - [Setup dan Instalasi](#🚀-setup-dan-instalasi)
 - [Penggunaan](#🗄️-penggunaan)
-- [Dimensional Model](#dimensional-model)
 
 ---
 
@@ -222,7 +221,7 @@ docker exec -it namenode hdfs dfs -ls -R /user/datalake/retail/
 
 Jalankan script untuk membuat semua tabel:
 ```powershell
-docker exec -it hive-server beeline -u jdbc:hive2://localhost:10000 -f /warehouse/create_tables.hql
+docker exec -it hive-server beeline -u jdbc:hive2://localhost:10000 -f /workspace/create_tables.hql
 ```
 
 ### **Langkah 8: Verifikasi Tabel**
@@ -254,7 +253,18 @@ SELECT * FROM fact_sales LIMIT 10;
 
 Jalankan demo queries:
 ```powershell
-docker exec -it hive-server beeline -u jdbc:hive2://localhost:10000 -f /warehouse/demo_queries.hql
+docker exec -it hive-server beeline -u jdbc:hive2://localhost:10000 -f /workspace/demo_queries.hql
+```
+
+atau untuk lebih rapi gunakan:
+```powershell
+docker exec -it hive-server beeline -u jdbc:hive2://localhost:10000 --silent=true -f /workspace/demo_queries.hql
 ```
 ---
+
+## 👤 Author
+
+**Jason Yehezkiel Wijaya**  
+NIM: 191900531  
+Universitas: Calvin Institute of Technology
 
